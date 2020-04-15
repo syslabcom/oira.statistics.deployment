@@ -79,6 +79,29 @@ def get_metabase_args():
         required=True,
         help=("Name of the postgresql statistics database"),
     )
+    parser.add_argument(
+        "--statistics-user-email",
+        type=str,
+        help=(
+            "Email address for a non-superuser account to create for viewing the "
+            "statistics"
+        ),
+    )
+    parser.add_argument(
+        "--statistics-user-password",
+        type=str,
+        help=("Password for the non-superuser statistics account"),
+    )
+    parser.add_argument(
+        "--statistics-user-first-name",
+        type=str,
+        help=("First name of the non-superuser statistics account"),
+    )
+    parser.add_argument(
+        "--statistics-user-last-name",
+        type=str,
+        help=("Last name of the non-superuser statistics account"),
+    )
     return parser.parse_args()
 
 
@@ -92,7 +115,7 @@ def init_metabase_instance():
         "{args.database_host}:{args.database_port}/{args.database_name}"
     ).format(args=args)
     with open("sql/metabase-dump.sql") as metabase_dump:
-        subprocess.check_call(["psql", postgres_url], stdin=metabase_dump)
+        subprocess.check_output(["psql", postgres_url], stdin=metabase_dump)
 
     api_url = "http://{args.metabase_host}:{args.metabase_port}".format(args=args)
     mb = Metabase_API(api_url, args.metabase_user, args.metabase_password)
@@ -100,6 +123,7 @@ def init_metabase_instance():
     result = mb.put(
         "/api/database/34",
         json={
+            "name": args.database_name_statistics,
             "engine": "postgres",
             "details": {
                 "dbname": args.database_name_statistics,
@@ -112,3 +136,16 @@ def init_metabase_instance():
     )
     if result >= 400:
         log.error("Could not update database connection! ({})".format(result))
+
+    if args.statistics_user_email:
+        result = mb.post(
+            "/api/user",
+            json={
+                "first_name": args.statistics_user_first_name,
+                "last_name": args.statistics_user_last_name,
+                "email": args.statistics_user_email,
+                "password": args.statistics_user_password,
+            },
+        )
+    if result >= 400:
+        log.error("Could not create user! ({})".format(result))
