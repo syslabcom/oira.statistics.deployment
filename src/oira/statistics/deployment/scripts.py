@@ -2,10 +2,52 @@
 from metabase_api import Metabase_API
 import argparse
 import logging
+import requests
 import subprocess
 import sys
 
 log = logging.getLogger(__name__)
+
+
+class OiraMetabase_API(Metabase_API):
+    def authenticate(self):
+        """Get a Session ID"""
+        conn_header = {"username": self.email, "password": self.password}
+
+        try:
+            res = requests.post(
+                self.domain + "/api/session", json=conn_header, timeout=15
+            )
+        except requests.exceptions.Timeout:
+            log.warn("Authentication timed out, retrying")
+            res = requests.post(
+                self.domain + "/api/session", json=conn_header, timeout=30
+            )
+        if not res.ok:
+            raise Exception(res)
+
+        self.session_id = res.json()["id"]
+        self.header = {"X-Metabase-Session": self.session_id}
+
+    def get(self, endpoint, **kwargs):
+        self.validate_session()
+        res = requests.get(self.domain + endpoint, headers=self.header, **kwargs)
+        return res
+
+    def post(self, endpoint, **kwargs):
+        self.validate_session()
+        res = requests.post(self.domain + endpoint, headers=self.header, **kwargs)
+        return res
+
+    def put(self, endpoint, **kwargs):
+        self.validate_session()
+        res = requests.put(self.domain + endpoint, headers=self.header, **kwargs)
+        return res
+
+    def delete(self, endpoint, **kwargs):
+        self.validate_session()
+        res = requests.delete(self.domain + endpoint, headers=self.header, **kwargs)
+        return res
 
 
 def get_metabase_args():
@@ -42,10 +84,7 @@ def get_metabase_args():
         help=("Password for connecting to the metabase instance"),
     )
     parser.add_argument(
-        "--database-name",
-        type=str,
-        required=True,
-        help=("Name of the internal metabase database"),
+        "--database-name", type=str, help=("Name of the internal metabase database")
     )
     parser.add_argument(
         "--database-host",
@@ -106,19 +145,12 @@ def get_metabase_args():
 
 
 def init_metabase_instance():
-    logging.basicConfig(stream=sys.stderr, level=0)
-    log.info("Cleaning and reinitializing metabase instance")
+    logging.basicConfig(stream=sys.stderr, level=20)
+    log.info("Initializing metabase instance")
     args = get_metabase_args()
 
-    postgres_url = (
-        "postgresql://{args.database_user}:{args.database_password}@"
-        "{args.database_host}:{args.database_port}/{args.database_name}"
-    ).format(args=args)
-    with open("sql/metabase-dump.sql") as metabase_dump:
-        subprocess.check_output(["psql", postgres_url], stdin=metabase_dump)
-
     api_url = "http://{args.metabase_host}:{args.metabase_port}".format(args=args)
-    mb = Metabase_API(api_url, args.metabase_user, args.metabase_password)
+    mb = OiraMetabase_API(api_url, args.metabase_user, args.metabase_password)
 
     result = mb.put(
         "/api/database/34",
@@ -134,8 +166,12 @@ def init_metabase_instance():
             },
         },
     )
-    if result >= 400:
-        log.error("Could not update database connection! ({})".format(result))
+    if not result.ok:
+        log.error(
+            "Could not update database connection! ({status_code}: {errors})".format(
+                status_code=result.status_code, errors=result.json().get("errors")
+            )
+        )
 
     if args.statistics_user_email:
         result = mb.post(
@@ -145,7 +181,12 @@ def init_metabase_instance():
                 "last_name": args.statistics_user_last_name,
                 "email": args.statistics_user_email,
                 "password": args.statistics_user_password,
+                "group_ids": [1],
             },
         )
-    if result >= 400:
-        log.error("Could not create user! ({})".format(result))
+    if not result.ok:
+        log.error(
+            "Could not create user! ({status_code}: {errors})".format(
+                status_code=result.status_code, errors=result.json().get("errors")
+            )
+        )
