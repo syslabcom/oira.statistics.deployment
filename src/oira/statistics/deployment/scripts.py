@@ -53,8 +53,8 @@ class OiraMetabase_API(Metabase_API):
 def get_metabase_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Initialize a metabase instance by restoring a SQL dump and adapting "
-            "settings to the given parameters."
+            "Initialize a metabase instance that has been freshly restored from a SQL "
+            "dump by adapting settings to the given parameters."
         )
     )
     parser.add_argument(
@@ -146,9 +146,9 @@ def get_metabase_args():
 
 def init_metabase_instance():
     logging.basicConfig(stream=sys.stderr, level=20)
-    log.info("Initializing metabase instance")
     args = get_metabase_args()
 
+    log.info("Initializing metabase instance")
     api_url = "http://{args.metabase_host}:{args.metabase_port}".format(args=args)
     mb = OiraMetabase_API(api_url, args.metabase_user, args.metabase_password)
 
