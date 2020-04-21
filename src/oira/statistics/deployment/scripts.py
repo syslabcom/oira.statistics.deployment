@@ -3,7 +3,6 @@ from metabase_api import Metabase_API
 import argparse
 import logging
 import requests
-import subprocess
 import sys
 
 log = logging.getLogger(__name__)
@@ -119,27 +118,15 @@ def get_metabase_args():
         help=("Name of the postgresql statistics database"),
     )
     parser.add_argument(
-        "--statistics-user-email",
+        "--statistics-user",
         type=str,
+        action="append",
+        nargs=4,
+        metavar="USER_INFO",
         help=(
-            "Email address for a non-superuser account to create for viewing the "
-            "statistics"
+            "Email address, password, first and last name, separated by whitespace, "
+            "for a non-superuser account to create for viewing the statistics"
         ),
-    )
-    parser.add_argument(
-        "--statistics-user-password",
-        type=str,
-        help=("Password for the non-superuser statistics account"),
-    )
-    parser.add_argument(
-        "--statistics-user-first-name",
-        type=str,
-        help=("First name of the non-superuser statistics account"),
-    )
-    parser.add_argument(
-        "--statistics-user-last-name",
-        type=str,
-        help=("Last name of the non-superuser statistics account"),
     )
     return parser.parse_args()
 
@@ -173,14 +160,14 @@ def init_metabase_instance():
             )
         )
 
-    if args.statistics_user_email:
+    for email, password, first_name, last_name in args.statistics_user:
         result = mb.post(
             "/api/user",
             json={
-                "first_name": args.statistics_user_first_name,
-                "last_name": args.statistics_user_last_name,
-                "email": args.statistics_user_email,
-                "password": args.statistics_user_password,
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "password": password,
                 "group_ids": [1],
             },
         )
