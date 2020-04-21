@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+export MB_JETTY_HOST=${metabase-host}
+export MB_JETTY_PORT=${metabase-port}
+export MB_DB_TYPE=${database-type}
+export MB_DB_DBNAME=${database-name}
+export MB_DB_HOST=${database-host}
+export MB_DB_PORT=${database-port}
+export MB_DB_USER=${database-user}
+export MB_DB_PASS=${database-password}
+java -jar ${metabase-jar:location}/metabase.jar $@

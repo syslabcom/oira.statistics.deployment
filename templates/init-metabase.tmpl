@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+{% def escape(password) %}${password.replace('\\'', '\'\\\\\'\'')}{% end %}
+echo '# Restoring database dump'
+echo 'Shutting down metabase instances'
+${parts.buildout['bin-directory']}/supervisorctl shutdown
+{% for instance in parts.buildout['metabase-instances'].split('\n') %}
+echo ''
+echo '${instance}'
+psql postgresql://${parts[instance]['database-user']}:${parts[instance]['database-password']}@${parts[instance]['database-host']}:${parts[instance]['database-port']}/${parts[instance]['database-name']} < ${parts.buildout['directory']}/dumps/metabase-dump.sql >/dev/null
+{% end %}
+echo ''
+echo 'Starting metabase instances'
+${parts.buildout['bin-directory']}/supervisord
+echo ''
+echo '# Applying instance specific settings'
+{% for instance in parts.buildout['metabase-instances'].split('\n') %}
+echo ''
+echo '${instance}'
+echo 'Waiting for ${instance} to come up...'
+while ! lsof -i:${parts[instance]['metabase-port']}; do
+    sleep 5s;
+done
+sleep 2s;  # just to be sure
+${parts.buildout['bin-directory']}/init-metabase-instance \\
+    --metabase-host='${parts[instance]['metabase-host']}' \\
+    --metabase-port='${parts[instance]['metabase-port']}' \\
+    --metabase-user='${parts[instance]['metabase-user']}' \\
+    --metabase-password='${escape(parts[instance]['metabase-password'])}' \\
+    --database-name='${parts[instance]['database-name']}' \\
+    --database-host='${parts[instance]['database-host']}' \\
+    --database-port='${parts[instance]['database-port']}' \\
+    --database-user='${parts[instance]['database-user']}' \\
+    --database-password='${escape(parts[instance]['database-password'])}' \\
+    --database-name-statistics='${parts[instance]['database-name-statistics']}' \\
+    {% for user in parts[instance].get('statistics-user').split('\n') %} \\
+    {% with email, password, first_name, last_name = user.split(' ') %} \\
+    --statistics-user '${email}' '${escape(password)}' '${first_name}' '${last_name}' \\
+    {% end %} \\
+    {% end %} || exit $?
+{% end %}

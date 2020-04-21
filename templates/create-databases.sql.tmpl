@@ -1,0 +1,11 @@
+{% for instance in parts.buildout['metabase-instances'].split('\n') %}
+CREATE DATABASE ${parts[instance]['database-name']};
+ALTER DATABASE ${parts[instance]['database-name']} OWNER TO ${parts[instance]['database-user']};
+\c ${parts[instance]['database-name']};
+ALTER SCHEMA public OWNER TO ${parts[instance]['database-user']};
+
+CREATE DATABASE ${parts[instance]['database-name-statistics']};
+ALTER DATABASE ${parts[instance]['database-name-statistics']} OWNER TO ${parts[instance]['database-user']};
+\c ${parts[instance]['database-name-statistics']};
+ALTER SCHEMA public OWNER TO ${parts[instance]['database-user']};
+{% end %}
