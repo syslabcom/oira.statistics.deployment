@@ -1,3 +1,7 @@
+# Repository moved!
+
+Please see https://github.com/EU-OSHA/oira.statistics.deployment
+
 # OSHA OiRA Statistics Deployment
 
 This package contains configuration and scripts for deploying the OSHA OiRA statistics. The buildout configuration sets up a number of metabase instances to serve the statistics and generates scripts to prime them with a database dump and tweak their settings afterwards.
